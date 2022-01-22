@@ -69,13 +69,27 @@ func editHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<h1>Edit: %s</h1>", p.Title)
 	fmt.Fprintf(w, "<form action=\"/save/%s\" method=\"post\">", p.Title)
 	fmt.Fprintf(w, "<div><textarea name=\"body\" rows=\"30\" cols=\"100\">%s</textarea></div>", p.Body)
-	fmt.Fprintf(w, "<div><input type=\"submit\"></div>")
+	fmt.Fprintf(w, "<div><input type=\"submit\" value=\"Save\"></div>")
 	fmt.Fprintf(w, "</form>")
+}
+
+func saveHandler(w http.ResponseWriter, r *http.Request) {
+	p := &Page{
+		Title: strings.TrimPrefix(r.URL.Path, "/save/"),
+		Body:  []byte(r.FormValue("body")),
+	}
+	if err := p.save(); err != nil {
+		log.Printf("could not save page: %v", err)
+		http.Error(w, "could not save page", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/view/"+p.Title, http.StatusFound)
 }
 
 func main() {
 	http.HandleFunc("/list", listHandler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/edit/", editHandler)
+	http.HandleFunc("/save/", saveHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
