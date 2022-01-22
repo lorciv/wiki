@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -51,9 +52,13 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
 	title := strings.TrimPrefix(r.URL.Path, "/view/")
+	if !validTitle.MatchString(title) {
+		http.Error(w, "invalid page title", http.StatusBadRequest)
+		return
+	}
 	p, err := loadPage(title)
 	if os.IsNotExist(err) {
-		http.Error(w, "page does not exist", http.StatusBadRequest)
+		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 		return
 	}
 	if err != nil {
@@ -81,6 +86,10 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 
 func editHandler(w http.ResponseWriter, r *http.Request) {
 	title := strings.TrimPrefix(r.URL.Path, "/edit/")
+	if !validTitle.MatchString(title) {
+		http.Error(w, "invalid page title", http.StatusBadRequest)
+		return
+	}
 	p, err := loadPage(title)
 	if os.IsNotExist(err) {
 		p = &Page{Title: title}
@@ -112,6 +121,10 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
 		Title: strings.TrimPrefix(r.URL.Path, "/save/"),
 		Body:  []byte(r.FormValue("body")),
 	}
+	if !validTitle.MatchString(p.Title) {
+		http.Error(w, "invalid page title", http.StatusBadRequest)
+		return
+	}
 	if err := p.save(); err != nil {
 		log.Printf("could not save page: %v", err)
 		http.Error(w, "could not save page", http.StatusInternalServerError)
@@ -119,6 +132,8 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/view/"+p.Title, http.StatusFound)
 }
+
+var validTitle = regexp.MustCompile("^([a-zA-Z0-9]+)$")
 
 func main() {
 	http.HandleFunc("/list", listHandler)
