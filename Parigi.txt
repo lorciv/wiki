@@ -1,1 +1,2 @@
 <p>Parigi è la capitale della Francia.</p>
+<p>Un importante luogo d'attrazione di Parigi è la <strong>Tour Eiffel</strong>.</p>

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -26,19 +26,27 @@ func loadPage(title string) (*Page, error) {
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "<h1>Index</h1>")
+	var titles []string
 	entries, err := os.ReadDir(".")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintln(w, "<ul>")
 	for _, e := range entries {
 		if !e.IsDir() && strings.HasSuffix(e.Name(), ".txt") {
-			title := strings.TrimSuffix(e.Name(), ".txt")
-			fmt.Fprintf(w, "<li><a href=\"view/%s\">%s</a></li>", title, title)
+			titles = append(titles, strings.TrimSuffix(e.Name(), ".txt"))
 		}
 	}
-	fmt.Fprintln(w, "</ul>")
+
+	// TODO: template caching
+	templ, err := template.ParseFiles("templates/list.html")
+	if err != nil {
+		log.Printf("could not parse template: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if err := templ.Execute(w, titles); err != nil {
+		log.Printf("could not execute template: %v", err)
+	}
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
@@ -52,9 +60,23 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, "<h1>%s</h1>", p.Title)
-	fmt.Fprintf(w, "<div>%s</div>", p.Body)
-	fmt.Fprintf(w, "<ul><li><a href=\"/edit/%s\">Edit</a></li><li><a href=\"/list\">Index</a></li></ul>", title)
+
+	// TODO: template caching
+	templ, err := template.ParseFiles("templates/view.html")
+	if err != nil {
+		log.Printf("could not parse template: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if err := templ.Execute(w, struct {
+		Title string
+		Body  template.HTML
+	}{
+		Title: p.Title,
+		Body:  template.HTML(p.Body),
+	}); err != nil {
+		log.Printf("could not execute template: %v", err)
+	}
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request) {
@@ -66,11 +88,23 @@ func editHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, "<h1>Edit: %s</h1>", p.Title)
-	fmt.Fprintf(w, "<form action=\"/save/%s\" method=\"post\">", p.Title)
-	fmt.Fprintf(w, "<div><textarea name=\"body\" rows=\"30\" cols=\"100\">%s</textarea></div>", p.Body)
-	fmt.Fprintf(w, "<div><input type=\"submit\" value=\"Save\"></div>")
-	fmt.Fprintf(w, "</form>")
+
+	// TODO: template caching
+	templ, err := template.ParseFiles("templates/edit.html")
+	if err != nil {
+		log.Printf("could not parse template: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if err := templ.Execute(w, struct {
+		Title string
+		Body  template.HTML
+	}{
+		Title: p.Title,
+		Body:  template.HTML(p.Body),
+	}); err != nil {
+		log.Printf("could not execute template: %v", err)
+	}
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request) {
