@@ -1,0 +1,11 @@
+<p>Go è un linguaggio di programmazione.</p>
+<p>Ecco un esempio di un semplice programma:</p>
+<pre>
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("hello, world")
+}
+</pre>

@@ -40,7 +40,24 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<div>%s</div>", p.Body)
 }
 
+func listHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "<h1>Index</h1>")
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintln(w, "<ul>")
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".txt") {
+			title := strings.TrimSuffix(e.Name(), ".txt")
+			fmt.Fprintf(w, "<li><a href=\"view/%s\">%s</a></li>", title, title)
+		}
+	}
+	fmt.Fprintln(w, "</ul>")
+}
+
 func main() {
+	http.HandleFunc("/", listHandler)
 	http.HandleFunc("/view/", viewHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
