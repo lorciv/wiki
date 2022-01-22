@@ -1,5 +1,7 @@
 <h1>{{.Title}}</h1>
-<div>{{.Body}}</div>
+{{range .Body}}
+<p>{{.}}</p>
+{{end}}
 <ul>
     <li><a href="/edit/{{.Title}}">Edit</a></li>
     <li><a href="/list">Index</a></li>

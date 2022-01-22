@@ -1,0 +1,13 @@
+Go è un linguaggio di programmazione.
+
+Ecco un esempio di un semplice programma.
+
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("hello, world")
+}
+
+Per eseguire il programma, utilizzare il comando go run main.go all'interno di un terminale.

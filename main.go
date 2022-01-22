@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -11,24 +13,47 @@ import (
 
 type Page struct {
 	Title string
-	Body  []byte
+	Body  []string
 }
 
 func (p *Page) save() error {
-	return os.WriteFile(p.Title+".txt", p.Body, 0600)
+	f, err := os.Create("pages/" + p.Title + ".txt")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for _, s := range p.Body {
+		fmt.Fprintln(f, s)
+	}
+	return nil
 }
 
 func loadPage(title string) (*Page, error) {
-	body, err := os.ReadFile(title + ".txt")
+	f, err := os.Open("pages/" + title + ".txt")
 	if err != nil {
 		return nil, err
 	}
-	return &Page{Title: title, Body: body}, nil
+	defer f.Close()
+
+	p := &Page{Title: title}
+	scan := bufio.NewScanner(f)
+	for scan.Scan() {
+		line := scan.Text()
+		if line == "" {
+			continue
+		}
+		p.Body = append(p.Body, line)
+	}
+	if err := scan.Err(); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request) {
 	var titles []string
-	entries, err := os.ReadDir(".")
+	entries, err := os.ReadDir("pages")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,13 +98,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	if err := templ.Execute(w, struct {
-		Title string
-		Body  template.HTML
-	}{
-		Title: p.Title,
-		Body:  template.HTML(p.Body),
-	}); err != nil {
+	if err := templ.Execute(w, p); err != nil {
 		log.Printf("could not execute template: %v", err)
 	}
 }
@@ -105,40 +124,34 @@ func editHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	if err := templ.Execute(w, struct {
-		Title string
-		Body  template.HTML
-	}{
-		Title: p.Title,
-		Body:  template.HTML(p.Body),
-	}); err != nil {
+	if err := templ.Execute(w, p); err != nil {
 		log.Printf("could not execute template: %v", err)
 	}
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request) {
-	p := &Page{
-		Title: strings.TrimPrefix(r.URL.Path, "/save/"),
-		Body:  []byte(r.FormValue("body")),
-	}
-	if !validTitle.MatchString(p.Title) {
-		http.Error(w, "invalid page title", http.StatusBadRequest)
-		return
-	}
-	if err := p.save(); err != nil {
-		log.Printf("could not save page: %v", err)
-		http.Error(w, "could not save page", http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/view/"+p.Title, http.StatusFound)
-}
+// func saveHandler(w http.ResponseWriter, r *http.Request) {
+// 	p := &Page{
+// 		Title: strings.TrimPrefix(r.URL.Path, "/save/"),
+// 		Body:  []byte(r.FormValue("body")),
+// 	}
+// 	if !validTitle.MatchString(p.Title) {
+// 		http.Error(w, "invalid page title", http.StatusBadRequest)
+// 		return
+// 	}
+// 	if err := p.save(); err != nil {
+// 		log.Printf("could not save page: %v", err)
+// 		http.Error(w, "could not save page", http.StatusInternalServerError)
+// 		return
+// 	}
+// 	http.Redirect(w, r, "/view/"+p.Title, http.StatusFound)
+// }
 
 var validTitle = regexp.MustCompile("^([a-zA-Z0-9]+)$")
 
-func main() {
-	http.HandleFunc("/list", listHandler)
-	http.HandleFunc("/view/", viewHandler)
-	http.HandleFunc("/edit/", editHandler)
-	http.HandleFunc("/save/", saveHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
+// func main() {
+// 	http.HandleFunc("/list", listHandler)
+// 	http.HandleFunc("/view/", viewHandler)
+// 	http.HandleFunc("/edit/", editHandler)
+// 	http.HandleFunc("/save/", saveHandler)
+// 	log.Fatal(http.ListenAndServe(":8080", nil))
+// }
