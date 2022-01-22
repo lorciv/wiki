@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 )
 
 type Page struct {
@@ -23,18 +25,22 @@ func loadPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-func main() {
-	p := Page{
-		Title: "Babbo Natale",
-		Body:  []byte("Babbo Natale è un personaggio di tanti racconti per bambini"),
+func viewHandler(w http.ResponseWriter, r *http.Request) {
+	title := strings.TrimPrefix(r.URL.Path, "/view/")
+	p, err := loadPage(title)
+	if os.IsNotExist(err) {
+		http.Error(w, "page does not exist", http.StatusBadRequest)
+		return
 	}
-	if err := p.save(); err != nil {
-		log.Fatalf("could not save page: %v", err)
-	}
-
-	p2, err := loadPage("Babbo Natale")
 	if err != nil {
-		log.Fatalf("could not load page: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
-	fmt.Println(p2.Title, string(p2.Body))
+	fmt.Fprintf(w, "<h1>%s</h1>", p.Title)
+	fmt.Fprintf(w, "<div>%s</div>", p.Body)
+}
+
+func main() {
+	http.HandleFunc("/view/", viewHandler)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

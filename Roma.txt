@@ -1,0 +1,2 @@
+<p>Roma è una città e capitale d'Italia.</p>
+<p>Si trova nella regione Lazio.</p>
