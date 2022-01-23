@@ -100,6 +100,94 @@ func lexText(l *lexer) stateFn {
 	return lex
 }
 
+type Element struct {
+	Type     string    // one of "heading", "text", "link", "paragraph"
+	Value    string    // only for type heading, text, link
+	Children []Element // only for type paragraph
+}
+
+type parser struct {
+	tokens []token
+	pos    int
+}
+
+func (p *parser) next() token {
+	t := p.tokens[p.pos]
+	p.pos++
+	return t
+}
+
+// parse parses the document into list of elements.
+func (p *parser) parse() ([]Element, error) {
+	var elements []Element
+
+	for {
+		t := p.next()
+
+		if t.typ == tokenEOF {
+			break
+		}
+
+		if t.typ == tokenHeading {
+			t = p.next()
+			if t.typ != tokenText {
+				return nil, fmt.Errorf("could not parse heading: expected %s, got %s", tokenText, t.typ)
+			}
+			if nt := p.next(); nt.typ != tokenNewLine {
+				return nil, fmt.Errorf("could not parse heading: expected %s, got %s", tokenNewLine, nt.typ)
+			}
+			elements = append(elements, Element{
+				Type:  "heading",
+				Value: t.text,
+			})
+			continue
+		} // end heading
+
+		if t.typ == tokenText {
+			e := Element{
+				Type: "paragraph",
+				Children: []Element{{
+					Type:  "text",
+					Value: t.text,
+				}},
+			}
+
+			for {
+				t = p.next()
+				if t.typ == tokenNewLine {
+					break
+				}
+				if t.typ == tokenText {
+					e.Children = append(e.Children, Element{
+						Type:  "text",
+						Value: t.text,
+					})
+					continue
+				}
+				if t.typ == tokenLLink {
+					t = p.next()
+					if t.typ != tokenText {
+						return nil, fmt.Errorf("expected %s, got %s", tokenNewLine, t.typ)
+					}
+					if nt := p.next(); nt.typ != tokenRLink {
+						return nil, fmt.Errorf("expected %s, got %s", tokenRLink, nt.typ)
+					}
+					e.Children = append(e.Children, Element{
+						Type:  "link",
+						Value: t.text,
+					})
+					continue
+				}
+			} // end child of paragraph (text or link)
+
+			elements = append(elements, e)
+		} // end paragraph
+
+	} // end document
+
+	return elements, nil
+}
+
 func main() {
 	buf, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -115,4 +203,15 @@ func main() {
 		state = state(&l)
 	}
 	fmt.Println(l.tokens)
+
+	p := parser{
+		tokens: l.tokens,
+	}
+	elements, err := p.parse()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, e := range elements {
+		fmt.Println(e)
+	}
 }
