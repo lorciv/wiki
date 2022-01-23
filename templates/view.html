@@ -1,6 +1,18 @@
 <h1>{{.Title}}</h1>
 {{range .Body}}
-<p>{{.}}</p>
+{{if eq .Type "heading"}}
+<h2>{{.Value}}</h2>
+{{else if eq .Type "paragraph"}}
+<p>
+    {{range .Children}}
+        {{if eq .Type "text"}}
+            {{.Value}}
+        {{else if eq .Type "link"}}
+            <a href="/view/{{.Value}}">{{.Value}}</a>
+        {{end}}
+    {{end}}
+</p>
+{{end}}
 {{end}}
 <ul>
     <li><a href="/edit/{{.Title}}">Edit</a></li>

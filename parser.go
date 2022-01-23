@@ -2,10 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log"
-	"os"
-	"time"
 	"unicode/utf8"
 )
 
@@ -112,6 +108,11 @@ type parser struct {
 }
 
 func (p *parser) next() token {
+	if p.pos >= len(p.tokens) {
+		return token{
+			typ: tokenEOF,
+		}
+	}
 	t := p.tokens[p.pos]
 	p.pos++
 	return t
@@ -154,7 +155,7 @@ func (p *parser) parse() ([]Element, error) {
 
 			for {
 				t = p.next()
-				if t.typ == tokenNewLine {
+				if t.typ == tokenNewLine || t.typ == tokenEOF {
 					break
 				}
 				if t.typ == tokenText {
@@ -188,30 +189,30 @@ func (p *parser) parse() ([]Element, error) {
 	return elements, nil
 }
 
-func main() {
-	buf, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		log.Fatal(err)
-	}
-	l := lexer{
-		input: string(buf),
-	}
-	state := lex
-	for state != nil {
-		fmt.Println(l.tokens)
-		time.Sleep(1 * time.Second)
-		state = state(&l)
-	}
-	fmt.Println(l.tokens)
+// func main() {
+// 	buf, err := io.ReadAll(os.Stdin)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	l := lexer{
+// 		input: string(buf),
+// 	}
+// 	state := lex
+// 	for state != nil {
+// 		fmt.Println(l.tokens)
+// 		time.Sleep(1 * time.Second)
+// 		state = state(&l)
+// 	}
+// 	fmt.Println(l.tokens)
 
-	p := parser{
-		tokens: l.tokens,
-	}
-	elements, err := p.parse()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, e := range elements {
-		fmt.Println(e)
-	}
-}
+// 	p := parser{
+// 		tokens: l.tokens,
+// 	}
+// 	elements, err := p.parse()
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	for _, e := range elements {
+// 		fmt.Println(e)
+// 	}
+// }

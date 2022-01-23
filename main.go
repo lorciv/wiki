@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"html/template"
 	"log"
@@ -12,43 +11,38 @@ import (
 )
 
 type Page struct {
-	Title string
-	Body  []string
+	Title   string
+	RawBody []byte
+	Body    []Element // available only after call to parse
+}
+
+func (p *Page) parse() error {
+	l := lexer{
+		input: string(p.RawBody),
+	}
+	state := lex
+	for state != nil {
+		state = state(&l)
+	}
+	fmt.Println(l.tokens)
+	par := parser{
+		tokens: l.tokens,
+	}
+	var err error
+	p.Body, err = par.parse()
+	return err
 }
 
 func (p *Page) save() error {
-	f, err := os.Create("pages/" + p.Title + ".txt")
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	for _, s := range p.Body {
-		fmt.Fprintln(f, s)
-	}
-	return nil
+	return os.WriteFile("pages/"+p.Title+".txt", p.RawBody, 0600)
 }
 
 func loadPage(title string) (*Page, error) {
-	f, err := os.Open("pages/" + title + ".txt")
+	body, err := os.ReadFile("pages/" + title + ".txt")
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	p := &Page{Title: title}
-	scan := bufio.NewScanner(f)
-	for scan.Scan() {
-		line := scan.Text()
-		if line == "" {
-			continue
-		}
-		p.Body = append(p.Body, line)
-	}
-	if err := scan.Err(); err != nil {
-		return nil, err
-	}
-	return p, nil
+	return &Page{Title: title, RawBody: body}, nil
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,6 +85,12 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := p.parse(); err != nil {
+		log.Printf("could not parse page: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	// TODO: template caching
 	templ, err := template.ParseFiles("templates/view.html")
 	if err != nil {
@@ -129,29 +129,29 @@ func editHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// func saveHandler(w http.ResponseWriter, r *http.Request) {
-// 	p := &Page{
-// 		Title: strings.TrimPrefix(r.URL.Path, "/save/"),
-// 		Body:  []byte(r.FormValue("body")),
-// 	}
-// 	if !validTitle.MatchString(p.Title) {
-// 		http.Error(w, "invalid page title", http.StatusBadRequest)
-// 		return
-// 	}
-// 	if err := p.save(); err != nil {
-// 		log.Printf("could not save page: %v", err)
-// 		http.Error(w, "could not save page", http.StatusInternalServerError)
-// 		return
-// 	}
-// 	http.Redirect(w, r, "/view/"+p.Title, http.StatusFound)
-// }
+func saveHandler(w http.ResponseWriter, r *http.Request) {
+	p := &Page{
+		Title:   strings.TrimPrefix(r.URL.Path, "/save/"),
+		RawBody: []byte(r.FormValue("body")),
+	}
+	if !validTitle.MatchString(p.Title) {
+		http.Error(w, "invalid page title", http.StatusBadRequest)
+		return
+	}
+	if err := p.save(); err != nil {
+		log.Printf("could not save page: %v", err)
+		http.Error(w, "could not save page", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/view/"+p.Title, http.StatusFound)
+}
 
 var validTitle = regexp.MustCompile("^([a-zA-Z0-9]+)$")
 
-// func main() {
-// 	http.HandleFunc("/list", listHandler)
-// 	http.HandleFunc("/view/", viewHandler)
-// 	http.HandleFunc("/edit/", editHandler)
-// 	http.HandleFunc("/save/", saveHandler)
-// 	log.Fatal(http.ListenAndServe(":8080", nil))
-// }
+func main() {
+	http.HandleFunc("/list", listHandler)
+	http.HandleFunc("/view/", viewHandler)
+	http.HandleFunc("/edit/", editHandler)
+	http.HandleFunc("/save/", saveHandler)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
