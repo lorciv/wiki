@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"html/template"
 	"log"
@@ -148,10 +149,16 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
 
 var validTitle = regexp.MustCompile("^([a-zA-Z0-9]+)$")
 
+var port = flag.Int("p", 8080, "port")
+
 func main() {
+	flag.Parse()
+
 	http.HandleFunc("/list", listHandler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/edit/", editHandler)
 	http.HandleFunc("/save/", saveHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+
+	addr := fmt.Sprintf(":%d", *port)
+	log.Fatal(http.ListenAndServe(addr, nil))
 }
